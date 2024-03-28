@@ -6,21 +6,34 @@ import array
 import copy
 import hashlib
 import string
+import itertools
 
 input_file_name = 'input.txt'
-print_on = False
+print_on = True
 PR=0
 CO=1
 CU=2
 RU=3
 PL=4
 el_names = ['PR','CO','CU','RU','PL']
+TOP_FLOOR = 3
+
+# move = ( chips_to_move, gens_to_move, from_floor, to_floor )
 
 class Floors():
     def __init__(self):
         self.gens = array.array('I', [0] * 4)
         self.chips = array.array('I', [0] * 4)
         self.el = 0 # elevator
+        self.moves = 0 # moves so far
+    
+    def copy(self):
+        f = Floors()
+        f.gens = self.gens
+        f.chips = self.chips
+        f.el = self.el
+        f.moves = self.moves
+        return f
     
     def place_gen(self,element,floor):
         if (self.gens[floor] & (1 << element)):
@@ -66,6 +79,117 @@ class Floors():
             s += "\n"
         return s
 
+    def get_legal_single_object_moves(self):
+        chips = self.chips[self.el]
+        gens = 0
+        # can only move a gen if its chip is not there. or there are no other gens
+        for o in range(5):
+            if self.floor_has_gen(o,self.el):
+                if not self.floor_has_chip(o, self.el) or ((self.gens[self.el] ^ (1<<o)) == 0):
+                    gens += 1 << o
+        if (chips | gens) == 0 : return []
+        dests = []
+        if self.el < TOP_FLOOR: dests.append(self.el+1)
+        if self.el > 0: dests.append(self.el-1)
+        moves = []
+        for dest_floor in dests:
+            for o in range(5):
+                bit = 1 << o
+                # can only add chip to floor if no generators there or its own generator is there.
+                if (chips & bit) and ((self.gens[dest_floor]==0) or (self.gens[dest_floor] & bit)):
+                    moves.append((bit,0,self.el,dest_floor))
+                # can only add gen to floor if all chips there have their own gens
+                if (gens & bit) and ((self.chips[dest_floor] & self.gens[dest_floor]) == self.chips[dest_floor]):
+                    moves.append((0, bit, self.el, dest_floor))
+        return moves
+                
+    def get_legal_double_object_moves(self):
+        # can always move a chip. 
+        chipset = [ o for o in range(5) if self.floor_has_chip(o, self.el)]
+        # if we have 2 or more chips then get all combinations of 2
+        moves = []
+        dests = [] # up to 2 destination floors.
+        if self.el < TOP_FLOOR: dests.append(self.el+1)
+        if self.el > 0: dests.append(self.el-1)
+        for dest_floor in dests:
+            if len(chipset) > 1: 
+                for chippair in list(itertools.combinations(chipset, 2)):
+                    # each chippair has 2 potential chips we can move
+                    # Can go to floor if both chips have their gens there, or no gens at all.
+                    if (self.gens[dest_floor] == 0) or (self.floor_has_gen(chippair[0],dest_floor) and self.floor_has_gen(chippair[1],dest_floor)):
+                        moves.append((1<<chippair[0] + 1<<chippair[1], 0, self.el, dest_floor))
+                
+        # try chip + gen pair
+        for chip in chipset:
+            if self.floor_has_gen(chip,self.el):  # this floor has the gen for the chip
+                for dest_floor in dests:
+                    # can move this chip+gen to the floor if the floor doesn't have any chips without their gens.
+                    ok = True
+                    for o in range(5):
+                        if self.floor_has_chip(o,dest_floor) and not self.floor_has_gen(o,dest_floor):
+                            ok = False
+                    if ok: # can move the pair
+                        moves.append((1<<chip, 1<<chip, self.el, dest_floor))
+
+        # try gen + gen
+        genset = [ o for o in range(5) if self.floor_has_gen(o, self.el)]
+        if len(genset) > 1:
+            for genpair in list(itertools.combinations(genset, 2)):
+                pairbits = 1<<genpair[0] + 1<<genpair[1]
+                # can move 2 gens out if 
+                # 1. Only 2 chips left are the matching chips and no other gens, or
+                # 2. the two matching chips are not present.
+                if ( (len(genset)==2) and (self.chips[self.el]==pairbits)) or ((self.chips[self.el] & pairbits) == 0):
+                    for dest_floor in dests:
+                        # can move 2 gens to a floor iff all chips have their gens.
+                        if self.chips[dest_floor] & self.gens[dest_floor] == self.chips[dest_floor]:
+                            moves.append((0, pairbits, self.el, dest_floor ))
+
+        return moves
+
+    # return list of possible moves
+    def get_legal_next_moves(self):
+        if (self.gens[self.el] | self.chips[self.el]) == 0: # nothing to do
+            return []
+        
+        single_object_moves = self.get_legal_single_object_moves()
+        double_object_moves = self.get_legal_double_object_moves()
+        single_object_moves.extend(double_object_moves)
+        return single_object_moves
+
+    def apply_move(self, move):
+        if print_on:
+            print("--- Apply ", end='')
+            print_move(move)
+            print(f"{self.show()}")
+
+        chips = move[0]
+        gens = move[1]
+        from_floor = move[2]
+        to_floor = move[3]
+        if chips | gens == 0:
+            print("Error: move has no chips or gens")
+            sys.exit(1)
+        for o in range(5):
+            if chips & (1<<o): 
+                self.remove_chip(o,from_floor)
+                self.place_chip(o,to_floor)
+            if gens & (1<<o): 
+                self.remove_gen(o,from_floor)
+                self.place_gen(o,to_floor)
+        self.el = to_floor
+        self.moves += 1
+
+    def finished(self):
+        return (self.gens[3] == 0x1f) and (self.chips[3] == 0x1f)
+    
+def print_move(m):
+    s = "MOVE:"
+    for o in range(5): 
+        if m[0] & 1<<o : s += " C_" + el_names[o]
+        if m[1] & 1<<o : s += " G_" + el_names[o]
+    print(f"{s} from {m[2]} -> {m[3]}")
+
 def load_db():
     with open(input_file_name) as f:
         lines = f.readlines()
@@ -78,11 +202,39 @@ def setup(f):
         f.place_gen(el,1)
         f.place_chip(el,2)
 
+
 def do_part1(db):
     o = 0
     f = Floors()
     setup(f)
     print(f"{f.show()}")
+
+    moves = f.get_legal_next_moves()
+    paths = []
+    if len(moves): 
+        paths.append((f, moves.pop()))
+        for m in moves:
+            paths.append((f.copy(), m))
+
+    while len(paths):
+        print(f"---- There are now {len(paths)} paths ----")
+        new_paths = []
+        for f,m in paths:
+            f.apply_move(m)
+            if f.finished(): return f.moves
+            if print_on: print(f"After move, floors are:\n{f.show()}")
+            moves = f.get_legal_next_moves()
+            if len(moves): 
+                if print_on: 
+                    print(f"After move, there are {len(moves)} new moves:")
+                    for mm in moves: print_move(mm)
+                new_paths.append((f, moves.pop()))
+                for m in moves:
+                    new_paths.append((f.copy(), m))    
+            else:
+                if print_on: print("No possible new moves.")
+
+        paths = new_paths
 
     return o
 
