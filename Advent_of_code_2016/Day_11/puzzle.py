@@ -9,7 +9,7 @@ import string
 import itertools
 
 input_file_name = 'input.txt'
-print_on = True
+print_on = False
 PR=0
 CO=1
 CU=2
@@ -29,8 +29,8 @@ class Floors():
     
     def copy(self):
         f = Floors()
-        f.gens = self.gens
-        f.chips = self.chips
+        f.gens = array.array('I', [i for i in self.gens])
+        f.chips = array.array('I', [i for i in self.chips])
         f.el = self.el
         f.moves = self.moves
         return f
@@ -117,7 +117,7 @@ class Floors():
                     # each chippair has 2 potential chips we can move
                     # Can go to floor if both chips have their gens there, or no gens at all.
                     if (self.gens[dest_floor] == 0) or (self.floor_has_gen(chippair[0],dest_floor) and self.floor_has_gen(chippair[1],dest_floor)):
-                        moves.append((1<<chippair[0] + 1<<chippair[1], 0, self.el, dest_floor))
+                        moves.append(((1<<chippair[0]) + (1<<chippair[1]), 0, self.el, dest_floor))
                 
         # try chip + gen pair
         for chip in chipset:
@@ -135,7 +135,7 @@ class Floors():
         genset = [ o for o in range(5) if self.floor_has_gen(o, self.el)]
         if len(genset) > 1:
             for genpair in list(itertools.combinations(genset, 2)):
-                pairbits = 1<<genpair[0] + 1<<genpair[1]
+                pairbits = (1<<genpair[0]) + (1<<genpair[1])
                 # can move 2 gens out if 
                 # 1. Only 2 chips left are the matching chips and no other gens, or
                 # 2. the two matching chips are not present.
@@ -153,7 +153,13 @@ class Floors():
             return []
         
         single_object_moves = self.get_legal_single_object_moves()
+        if len(single_object_moves) and print_on:
+            print(f"{len(single_object_moves)} new single moves are:")
+            for m in single_object_moves: print_move(m)
         double_object_moves = self.get_legal_double_object_moves()
+        if len(double_object_moves) and print_on:
+            print(f"{len(double_object_moves)} new double moves are:")
+            for m in double_object_moves: print_move(m)
         single_object_moves.extend(double_object_moves)
         return single_object_moves
 
@@ -183,6 +189,23 @@ class Floors():
     def finished(self):
         return (self.gens[3] == 0x1f) and (self.chips[3] == 0x1f)
     
+    def is_same_as(self, other):
+        for fl in range(4):
+            if self.gens[fl] != other.gens[fl]: return False
+            if self.chips[fl] != other.chips[fl]: return False
+        if self.el != other.el: return False
+        return True
+
+    def already_seen(self, seenlist):
+        for f in seenlist:
+            if self.is_same_as(f):
+                #print(f"Already seen:")
+                #print(f"{self.show()}")
+                #print(f"Is same as:")
+                #print(f"{f.show()}")
+                return True
+        return False
+    
 def print_move(m):
     s = "MOVE:"
     for o in range(5): 
@@ -202,13 +225,21 @@ def setup(f):
         f.place_gen(el,1)
         f.place_chip(el,2)
 
+def remove_move(moves, orig_move):
+    newmoves = []
+    for m in moves:
+        if (m[0] == orig_move[0]) and (m[1] == orig_move[1]):
+            if (m[2] == orig_move[3]) and (m[3] == orig_move[2]):
+                # print("Removed inverse")
+                continue
+        newmoves.append(m)
+    return newmoves
 
 def do_part1(db):
     o = 0
     f = Floors()
     setup(f)
-    print(f"{f.show()}")
-
+    seen = [f.copy()]
     moves = f.get_legal_next_moves()
     paths = []
     if len(moves): 
@@ -219,11 +250,16 @@ def do_part1(db):
     while len(paths):
         print(f"---- There are now {len(paths)} paths ----")
         new_paths = []
-        for f,m in paths:
+        for (f,m) in paths:
             f.apply_move(m)
             if f.finished(): return f.moves
+            if f.already_seen(seen): 
+                # print("New floor has already been seen - discarding it")
+                continue
+            seen.append(f.copy())
             if print_on: print(f"After move, floors are:\n{f.show()}")
-            moves = f.get_legal_next_moves()
+            newmoves = f.get_legal_next_moves()
+            moves = remove_move(newmoves, m)  # dont just undo the move we made
             if len(moves): 
                 if print_on: 
                     print(f"After move, there are {len(moves)} new moves:")
