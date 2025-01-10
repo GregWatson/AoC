@@ -62,17 +62,53 @@ def drawArray(a):
 # use memoization memo cacheing
 #@functools.cache
 
+def getMinTokens(g):
+    minSoFar = 100000000
+    prizeX = g['P'][0]; prizeY = g['P'][1]
+    (ax, ay) = g['A']
+    (bx, by) = g['B']
+    x=0;y=0
+    aPushes = 0
+    while x <= prizeX and y <= prizeY:
+        # Can we use just B button to get to prize?
+        if (prizeX - x) % bx == 0:  # yes
+            bPushes = (prizeX - x) / bx
+            if y + bPushes*by == prizeY:
+                print(f"from ({x},{y}) it is {bPushes} B pushes to get to Prize ({prizeX},{prizeY})")
+                cost = aPushes*3 + bPushes
+                if cost < minSoFar: minSoFar = cost
+        x = x + ax; y = y + ay
+        aPushes = aPushes + 1
+    if minSoFar < 100000000: return minSoFar
+    else: return 0  # cant get to prize
+
+def getMinTokens2(g,adder=0):
+    cost = 0
+    prizeX = g['P'][0] + adder; prizeY = g['P'][1] + adder
+    (ax, ay) = g['A']
+    (bx, by) = g['B']
+    bPushes = ((prizeX * ay) - (ax * prizeY)) / (bx * ay - by * ax)
+    aPushes = (prizeX - bPushes * bx)/ax
+    # print(f"{aPushes} aPushes and {bPushes} B pushes to get to Prize ({prizeX},{prizeY})")
+    if (int(bPushes) == bPushes) and (int(aPushes) == aPushes):
+        cost = 3 * aPushes + bPushes
+        print(f"---- {aPushes} aPushes and {bPushes} B pushes to get to Prize ({prizeX},{prizeY})")
+    return cost
 
 def doPart1(db):
     s = 0
     games = getGames(db)
+    for game in games: 
+        s =  s + getMinTokens2(game)
     return s
    
 
 def doPart2(db):
     s = 0
-
-    return s
+    games = getGames(db)
+    for g in games:
+        s =  s + getMinTokens2(g,10000000000000)
+    return int(s)
 
 #---------------------------------------------------------------------------------------
 # Load input
@@ -81,5 +117,6 @@ db = load_db()
 p1 = doPart1(db)
 print(f"Part 1 is {p1}")
 
-#p2 = doPart2(db)
-#print(f"Part 2 is {p2}")
+db = load_db()
+p2 = doPart2(db)
+print(f"Part 2 is {p2}")
