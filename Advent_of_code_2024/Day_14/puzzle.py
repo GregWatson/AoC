@@ -86,16 +86,25 @@ def parseDB(db):
             robots.append(r)
     return robots
 
-def showRobots(robots):
-    print("\033[2J")
+def makeBathroom(robots):
     bathroom = [ ['_' for x in range(WIDTH)] for y in range(HEIGHT) ]
     for r in robots:
         bathroom[r.y][r.x]="#"
+    return bathroom
+
+def showBathroom(bathroom):
+    # print("\033[2J")
     for l in bathroom:
         for c in l:
             print(f"{c}",end='')
         print(f"\n")
     print(f"\n")
+
+def looksLikeTree(bathroom):
+    for l in bathroom:
+        s = ''.join(l)
+        if '########' in s: return True
+    return False
 
 def doPart1(db):
     s = 0
@@ -118,8 +127,10 @@ def doPart2(db):
     while True:
         for r in robots: r.move()
         s = s+1
-        showRobots(robots)
-        print(f"Count={s}")
+        bathroom = makeBathroom(robots)
+        if looksLikeTree(bathroom):
+            showBathroom(bathroom)
+            print(f"Count={s}")
     return s
 
 #---------------------------------------------------------------------------------------
