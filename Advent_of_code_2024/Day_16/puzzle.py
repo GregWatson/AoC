@@ -18,7 +18,8 @@ if BLENDER:
 # ---------------
 
 input_file_name = 'input.txt'
-print_on = False
+print_on = True
+MAX=141
 MAX=15
 BIGNUM=100000000
 
@@ -62,9 +63,9 @@ def getMaze(db):
                     isJunction[y][x] = 1
     return maze, isJunction, costFrom,sx,sy
 
-def getCheapestCostFrom(maze, isJunction, costFrom, x, y, xs, ys , costSoFar=0, been={},depth=0):
+def getCheapestCostFrom(maze, isJunction, costFrom, x, y, xs, ys , been={},depth=0):
     indent=' '*(depth*2)
-    print(f"{indent}getCCost ({x},{y}) dir={xs},{ys}")
+    if print_on: print(f"{indent}getCCost ({x},{y}) dir={xs},{ys}")
     if maze[y][x] == 'E': 
         costFrom[y][x] = 0
         return 0
@@ -73,36 +74,33 @@ def getCheapestCostFrom(maze, isJunction, costFrom, x, y, xs, ys , costSoFar=0, 
     been[loc] = 1
     cheapest = BIGNUM
     foundPath = False
-    chosenMoveCost=0
     for newxs,newys in ((1,0),(-1,0),(0,1),(0,-1)):
         if newxs+xs == 0 and newys+ys == 0: # dont try going back
             continue
         if maze[y+newys][x+newxs] == '#': 
             continue   # dont walk into a wall
-        print(f"{indent}--({x},{y}) Trying dir {newxs},{newys}")
+        if print_on: print(f"{indent}--({x},{y}) Trying dir {newxs},{newys}   Depth {depth}")
         moveCost = 0
         if newxs != xs or newys != ys: moveCost = moveCost + 1000  # made a turn
         tx = x+newxs; ty = y+newys; moveCost = moveCost + 1
         # keep going until a junction
         while isJunction[ty][tx] == 0: # not a junction
             tx = tx+newxs; ty = ty+newys; moveCost = moveCost + 1
-        if costSoFar+moveCost < cheapest:
-            if costFrom[ty][tx] == BIGNUM:
-                c = getCheapestCostFrom(maze, isJunction,costFrom, tx, ty, newxs, newys ,costSoFar+moveCost, been=copy.copy(been),depth=depth+1)
-                if c >= 0 and c < costFrom[ty][tx]:
-                    costFrom[ty][tx] = c
-                    print(f"{indent}--The cost from {tx},{ty} is {c}")
-            else: 
-                c = costFrom[ty][tx]
-            if c>=0:
-                total = costSoFar + moveCost + c
-                if total < cheapest: 
-                    cheapest = total
-                    chosenMoveCost = moveCost
-                foundPath = True
+        if costFrom[ty][tx] == BIGNUM: # not known
+            c = getCheapestCostFrom(maze, isJunction, costFrom, tx, ty, newxs, newys , been=copy.copy(been), depth=depth+1)
+            if c >= 0 and c < costFrom[ty][tx]:
+                costFrom[ty][tx] = c
+                if print_on: print(f"{indent}--The cost from {tx},{ty} is {c}")
+        else: 
+            c = costFrom[ty][tx]
+        if c>=0:
+            total = moveCost + c
+            if total < cheapest: cheapest = total
+            foundPath = True
     if foundPath: 
-        costFrom[y][x] = chosenMoveCost + c
-        print(f"{indent}--After choices, the cost from {x},{y} is {costFrom[y][x]}")
+        if cheapest < costFrom[y][x]: 
+            costFrom[y][x] = cheapest
+            if print_on: print(f"{indent}--After choices, the cost from {x},{y} is {costFrom[y][x]}")
         return cheapest
     else: return -1
     
@@ -122,7 +120,7 @@ def doPart2(db):
 #---------------------------------------------------------------------------------------
 # Load input
 db = load_db()
-
+sys.setrecursionlimit(2000)
 p1 = doPart1(db)
 print(f"Part 1 is {p1}")
 
