@@ -20,8 +20,8 @@ if BLENDER:
 input_file_name = 'input.txt'
 print_on = False
 MAX=141 
-#MAX=15
-#MAX=17 # small2
+MAX=15
+MAX=17 # small2
 #MAX=5  #tiny
 BIGNUM=100000000
 minPath = 1
@@ -197,7 +197,7 @@ def getCheapestCostTo2(maze, isJunction, costTo, x, y, xs, ys, costSoFar=0, been
         if maze[y+newys][x+newxs] == '#': 
             continue   # dont walk into a wall
         lbeen = copy.copy(been)
-        lc = 0 # local cost as move from x,y
+        lc = 0 # track local cost as we move from x,y to next junction
         if print_on: print(f"{indent}----({x},{y}) Trying dir {newxs},{newys}   Depth {depth}  costSoFar={costSoFar}")
         if newxs != xs or newys != ys: # made a turn
             lc = lc + 1000
@@ -212,8 +212,8 @@ def getCheapestCostTo2(maze, isJunction, costTo, x, y, xs, ys, costSoFar=0, been
             b2 = b2 | b
             tc = lcf + lc
             if tc < lc_seen: lc_seen = tc
-            if tc < lowestCostFrom[dir][y][x]: 
-                if print_on: print(f"{indent}  -- New lc FROM ({x},{y}) dir {dir} is {tc} (was {lowestCostFrom[dir][y][x]})")
+            if tc < lowestCostFrom[dir][y][x]:
+                print(f"{indent}  -- New lc FROM ({x},{y}) dir {dir} is {tc} (was {lowestCostFrom[dir][y][x]})")
                 lowestCostFrom[dir][y][x] = tc
             else:
                 if print_on: print(f"{indent}  ... computed lowest cost from ({x},{y}) dir {dir} is {tc} but bigger than {lowestCostFrom[dir][y][x]} ")
