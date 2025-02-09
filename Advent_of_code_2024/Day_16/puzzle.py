@@ -20,8 +20,8 @@ if BLENDER:
 input_file_name = 'input.txt'
 print_on = False
 MAX=141 
-MAX=15
-MAX=17 # small2
+#MAX=15
+#MAX=17 # small2
 #MAX=5  #tiny
 BIGNUM=100000000
 minPath = 1
@@ -139,46 +139,52 @@ lowestCostFrom = {'px': [ array.array('L',[BIGNUM for x in range(MAX)]) for y in
                   'my': [ array.array('L',[BIGNUM for x in range(MAX)]) for y in range(MAX) ] }
 
 minSeen = 1000000
+allTiles = set()
 
-# returns set of tiles seen on the path and lowest cost from x,y to E if path exists, else BIGNUM
+# get cheapest cost to E from x,y,
 def getCheapestCostTo2(maze, isJunction, costTo, x, y, xs, ys, costSoFar=0, been=set(), depth=0):
-    global minSeen, lowestCostFrom, minPath
+    global minSeen, lowestCostFrom, minPath, allTiles
     indent=' '*(depth*2)
-    if print_on: print(f"{indent}getCCost ({x},{y}) dir={xs},{ys} costSoFar={costSoFar}")
+    if print_on: print(f"{indent}getCCostTo2 ({x},{y}) dir={xs},{ys} costSoFar={costSoFar}")
     dir = getDir(xs,ys) 
+
+    if costSoFar > minSeen: return
 
     if maze[y][x] == 'E':
         been.add((x,y))
-        lowestCostFrom[dir][y][x] = 0
+        # lowestCostFrom[dir][y][x] = 0
         if costSoFar < minSeen:
-            print(f"{indent}-- Best path so far is {len(been)} {costSoFar}  (Target is {minPath})")
+            if print_on: print(f"{indent}-- Best path so far is {len(been)} {costSoFar}  (Target is {minPath})")
             minSeen = costSoFar
         if costSoFar == minPath:
-            print(f"{indent}-- Found an optimal path. tile len is {len(been)} cost:{costSoFar}  (Target is {minPath})")
-            print(f"{indent}   Path: {been}")
-            return been, 0
-        return set(), 0
+            if print_on: print(f"{indent}-- Found an optimal path. tile len is {len(been)} cost:{costSoFar}  (Target is {minPath})")
+            if print_on: print(f"{indent}   Path: {been}")
+            for t in been: allTiles.add(t)
+            return
+        return 
 
     # if we have already been here THIS PATH then quit
     if (x,y) in been:
-        return set(), BIGNUM
+        return 
     # If we have already been here on ANY PATH with a lower cost then quit
     if costTo[dir][y][x] < costSoFar:
-        return set(), BIGNUM
+        return 
+
+
     #if print_on: print(f"{indent}-- Updated lc TO ({x},{y}) dir {dir}: {costSoFar} (Was {costTo[dir][y][x]})")
     costTo[dir][y][x] = costSoFar
 
     been.add((x,y))
 
     # if we already have the lowest cost from here to END then use it
-    if lowestCostFrom[dir][y][x] < BIGNUM:
-        finalCost = costSoFar + lowestCostFrom[dir][y][x]
-        if print_on: print(f"{indent}-- Have already got lc from {x},{y} dir {dir} - it is {lowestCostFrom[dir][y][x]}. So TC is  {finalCost}")
-        if finalCost == minPath:
-            print(f"{indent}-- Found an optimal path. tile len is {len(been)} cost:{finalCost}  (Target is {minPath})")
-            print(f"{indent}   Path: {been}")
-            return been, lowestCostFrom[dir][y][x]
-        return set(), lowestCostFrom[dir][y][x]
+    # if lowestCostFrom[dir][y][x] < BIGNUM:
+    #     finalCost = costSoFar + lowestCostFrom[dir][y][x]
+    #     if print_on: print(f"{indent}-- Have already got lc from {x},{y} dir {dir} - it is {lowestCostFrom[dir][y][x]}. So TC is  {finalCost}")
+    #     if finalCost == minPath:
+    #         print(f"{indent}-- Found an optimal path. tile len is {len(been)} cost:{finalCost}  (Target is {minPath})")
+    #         print(f"{indent}   Path: {been}")
+    #         return been, lowestCostFrom[dir][y][x]
+    #     return set(), lowestCostFrom[dir][y][x]
 
     # OK, so now we need to find the lowest path from x,y to E
 
@@ -187,7 +193,6 @@ def getCheapestCostTo2(maze, isJunction, costTo, x, y, xs, ys, costSoFar=0, been
     #if print_on: print(f"X",end='')
 
     b2 = set()
-    lc_seen = BIGNUM
     dirlist= [(xs,ys,dir)]  # always keep going in same direction if we can
     for newxs,newys,newdir in ((0,-1,'my'),(0,1,'py'),(-1,0,'mx'),(1,0,'px')):
         if newdir != dir: dirlist.append((newxs,newys,newdir))
@@ -207,20 +212,21 @@ def getCheapestCostTo2(maze, isJunction, costTo, x, y, xs, ys, costSoFar=0, been
             lbeen.add((tx,ty))
             assert maze[ty][tx] is '.'
             tx = tx+newxs; ty = ty+newys; lc = lc + 1
-        b,lcf = getCheapestCostTo2(maze, isJunction, costTo, tx, ty, newxs, newys , (costSoFar + lc), been=lbeen, depth=depth+1)
-        if lcf < BIGNUM:
-            b2 = b2 | b
-            tc = lcf + lc
-            if tc < lc_seen: lc_seen = tc
-            if tc < lowestCostFrom[dir][y][x]:
-                print(f"{indent}  -- New lc FROM ({x},{y}) dir {dir} is {tc} (was {lowestCostFrom[dir][y][x]})")
-                lowestCostFrom[dir][y][x] = tc
-            else:
-                if print_on: print(f"{indent}  ... computed lowest cost from ({x},{y}) dir {dir} is {tc} but bigger than {lowestCostFrom[dir][y][x]} ")
+        getCheapestCostTo2(maze, isJunction, costTo, tx, ty, newxs, newys , (costSoFar + lc), been=lbeen, depth=depth+1)
 
-    if len(b2): 
-        if print_on: print(f"{indent}({x},{y}) returning b2 len of {len(b2)}")
-    return b2, lc_seen
+    #     if lcf < BIGNUM:
+    #         b2 = b2 | b
+    #         tc = lcf + lc
+    #         if tc < lc_seen: lc_seen = tc
+    #         if tc < lowestCostFrom[dir][y][x]:
+    #             print(f"{indent}  -- New lc FROM ({x},{y}) dir {dir} is {tc} (was {lowestCostFrom[dir][y][x]})")
+    #             lowestCostFrom[dir][y][x] = tc
+    #         else:
+    #             if print_on: print(f"{indent}  ... computed lowest cost from ({x},{y}) dir {dir} is {tc} but bigger than {lowestCostFrom[dir][y][x]} ")
+
+    # if len(b2): 
+    #     if print_on: print(f"{indent}({x},{y}) returning b2 len of {len(b2)}")
+
 
 
 def doPart1(db):
@@ -241,15 +247,13 @@ def doPart2(db):
     print("\033[2J")
     printMaze(maze)
     print(f"Seeking number of tiles for minpath {minPath}")
-    b, lc_seen = getCheapestCostTo2(maze, isJunction, costTo, sx,sy,1,0, costSoFar=0, been=set(), depth=0)
-    if lc_seen > minPath: print("FAILED!!!! -- ",end='')
-    print(f"Part 2: Computed lowest cost is {lc_seen}")
+    getCheapestCostTo2(maze, isJunction, costTo, sx,sy,1,0, costSoFar=0, been=set(), depth=0)
     #if minPath < 100000:
     #    for dir in ('x','y'):
     #        for y in range(MAX):
     #            for x in range(MAX):
     #                if lowestCostFrom[dir][y][x] < BIGNUM: print(f"LC from {x},{y} dir {dir} is {lowestCostFrom[dir][y][x]}")
-    return len(b)
+    return len(allTiles)
 
 #---------------------------------------------------------------------------------------
 # Load input
