@@ -22,7 +22,7 @@ input_file_name = 'input.txt'
 print_on = False
 BIGNUM=10000000
 MAX=141; MINSAVED=100; NUMCHEATS=20
-MAX=15; MINSAVED=50; NUMCHEATS=6
+#MAX=15; MINSAVED=50; NUMCHEATS=20
 
 def load_db():
     with open(input_file_name) as f:
@@ -105,36 +105,19 @@ def getToExitDirectly(x,y,eX,eY):
     dist = abs(x-eX) + abs(y-eY)
     return dist <= NUMCHEATS
 
-def cheats2(maze, sx, sy, eX, eY, pathCostTo, path):
-    print(f"cheats2 from {sx},{sy} to {eX},{eY}")
-    atLeast100 = 0
-    cheats = {}
-    m = copy.deepcopy(maze)
-    for x,y in path:
-        pcost = pathCostTo[1000*x+y]
-        for xdelta in range(-NUMCHEATS, NUMCHEATS+1):
-            yswing = abs(NUMCHEATS-xdelta)
-            for ydelta in range(-yswing, yswing+1):
-                px=x+xdelta; py=y+ydelta
-                if px<1 or px>=MAX or py<1 or py>=MAX: continue
-                if px!=x or py!=y:
-                    if m[py][px] not in '.E':
-                        continue
-                    #m[py][px] = '*'
-                    cheatID = f"{x}_{y}_{px}_{py}"
-                    #if cheatID in cheats: 
-                    #    continue
-                    cheatCost = abs(xdelta) + abs(ydelta)
-                    if cheatCost < 2: continue
-                    saved = pathCostTo[1000*px+py] - pcost - cheatCost
-                    if (x==1) and (y==3):print(f"Cheat {cheatID} goes from {pcost} to {pathCostTo[1000*px+py]} at a cost of {cheatCost} - SAVING IS {saved}")
-                    if saved >= MINSAVED:
-                        cheats[cheatID] = saved
-                        atLeast100 = atLeast100 + 1
-        #printMaze(m)
-        #sys.exit(1)
-    print(f"Found {atLeast100} cheats")
-    return cheats
+def cheats2(path):
+    print(F"len path is {len(path)}")
+    count  = 0
+    for i,(x,y) in enumerate(path[0:-100]):
+        # print(f"{i} is {x},{y}")
+        for i2, (x2,y2) in enumerate(path[i+100:]):
+            dist = abs(x-x2) + abs(y-y2)
+            if dist <= NUMCHEATS and (i2 - dist) >= 0:
+                count = count + 1
+    print(f"Count is {count}")
+    return count
+
+
 
 def doPart1(db):
     maze, sx,sy, ex, ey = getMaze(db)
@@ -149,24 +132,16 @@ def doPart2(db):
     maze, sx,sy, ex, ey = getMaze(db)
     pathCostTo, path = walkPath(maze, sx,sy,ex,ey)
     print(f"Original Track len is {len(pathCostTo)}")
-    printMaze(maze)
-    cheats = cheats2(maze, sx,sy,ex,ey,pathCostTo,path)
-    saved = []
-    for c in cheats: 
-        if cheats[c] not in saved: saved.append(cheats[c])
-    saved.sort()
-    for val in saved:
-        num = 0
-        for c in cheats: 
-            if cheats[c] == val: num = num + 1
-        print(f"{num} cheats save {val} ps")
+    # printMaze(maze)
+    cheats = cheats2(path)
+    return cheats
     
 #---------------------------------------------------------------------------------------
 # Load input
 db = load_db()
 #sys.setrecursionlimit(10000)
-#p1 = doPart1(db)
-#print(f"Part 1 is {p1}")
+p1 = doPart1(db)
+print(f"Part 1 is {p1}")
 
 p2 = doPart2(db)
 print(f"\n\n\n\nPart 2 is {p2}")
