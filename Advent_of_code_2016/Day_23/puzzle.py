@@ -26,7 +26,7 @@ def exec(db, reg):
     ip = 0
     while ip < len(db):
         instr = db[ip]
-        print(f"ip={ip} {reg} {instr}")
+        # print(f"ip={ip} {reg} {instr}")
         if instr[0] == 'cpy':
             if instr[1] in reg:
                 reg[instr[2]] = reg[instr[1]]
@@ -71,17 +71,17 @@ def doPart1(db):
     return c
 
 def doPart2(db):
-    c= 0
+    c = exec(db, {'a':12, 'b':0, 'c':0, 'd':0})
     return c
 
 #---------------------------------------------------------------------------------------
 # Load input
 db = load_db()
 
-p1 = doPart1(db)
-print(f"Part 1 is {p1}")
+#p1 = doPart1(db)
+#print(f"Part 1 is {p1}")
 
-#p2 = doPart2(db1)
-#print(f"Part 2 is {p2}.")
+p2 = doPart2(db)
+print(f"Part 2 is {p2}.")
 
 
