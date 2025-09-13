@@ -31,11 +31,16 @@ def load_db():
         lines = f.readlines()
     return [ l.strip() for l in lines ]
 
-def printStr(s):
+def printSquare(s):
     a = s.split('/')
     for row in a:
         print(row)
     print()
+
+def getSquareSize(s):
+    l = len(s)
+    assert l in (5,11,19)
+    return 2 if l==5 else 3 if l==11 else 4 
 
 def printGridRow(row):
     grids = [ r.split('/') for r in row ]
@@ -45,17 +50,122 @@ def printGridRow(row):
             print(g[l], end='|')
         print()
 
-def printGrid(grid):
-    n = int(math.sqrt(len(grid)))
-    if len(grid[0]) == 5: w = 3
-    else: w = 4
-    print(f"{'-' * (n * w + 1)}")
-    for i in range(n):
-        printGridRow(grid[i*n:(i+1)*n])
-        print(f"{'-' * (n * w + 1)}")
-    print() 
+class Grid:
+    # A grid is a list of rows, each row is a list of squares (strings)
+    def __init__(self, square=None):
+        self.rows = []
+        if square: # initialize with a single row of a single square
+            self.rows.append([square])
+            self.setInfo()
+
+    def setInfo(self):
+        if len(self.rows):
+            self.width = len(self.rows[0])
+            self.numSquares = self.width * self.width
+            self.squareWidth = getSquareSize(self.rows[0][0])
+            self.printWidth = self.width * (self.squareWidth + 1) + 1
+
+    def addRow(self, row):
+        self.rows.append(row)
+        if len(self.rows) == 1:
+            self.setInfo()
+
+    def printGrid(self):
+        print(f"{'-' * self.printWidth}")
+        for row in self.rows:
+            printGridRow(row)
+            print(f"{'-' * self.printWidth}")
+        print()
+
+    def processRow(self, row, enh):
+        newRow = []
+        for square in row:
+            if square in enh:
+                newSquare = enh[square]
+                newRow.append(newSquare)
+            else:
+                print(f"Did not find {square} in enhancements")
+                sys.exit(1)
+        print(f"Processed row of {len(row)} squares into {len(newRow)} squares\n{newRow}")
+        return newRow
+
+    def resize4to2(self): # 4x4 => 4 2x2
+        newRows = []
+        for row in self.rows:
+            r0 = []
+            r1 = []
+            for sq in row:
+                l = fracture(sq)
+                r0.extend(l[0:2])
+                r1.extend(l[2:4])
+            newRows.append(r0)
+            newRows.append(r1)
+        self.rows = newRows
+        self.setInfo()
+
+    # process 2 rows of 3x3 at a time to yield 3 rows of 2x2
+    def resize3to2(self): # 4 3x3 => 9 2x2
+        newRows = []
+        for ri in range(0, len(self.rows), 2):
+            r3a = self.rows[ri]; r3b = self.rows[ri+1]
+            r0 = []; r1 = []; r2 = []
+            for si in range(0, len(self.rows[0]), 2):
+                l0 = r3a[si].split('/'); l1 = r3a[si+1].split('/'); l2 = r3b[si].split('/'); l3 = r3b[si+1].split('/')
+                s2_0 = l0[0][0:2] + '/' + l0[1][0:2]
+                s2_1 = l0[0][2] + l1[0][0] + '/' + l0[1][2] + l1[1][0]
+                s2_2 = l1[0][1:3] + '/' + l1[1][1:3]
+                s2_3 = l0[2][0:2] + '/' + l2[0][0:2]
+                s2_4 = l0[2][2] + l1[2][0] + '/' + l2[0][2] + l3[0][0]
+                s2_5 = l1[2][1:3] + '/' + l3[0][1:3]
+                s2_6 = l2[1][0:2] + '/' + l2[2][0:2]
+                s2_7 = l2[1][2] + l3[1][0] + '/' + l2[2][2] + l3[2][0]
+                s2_8 = l3[1][1:3] + '/' + l3[2][1:3]
+                r0.extend([s2_0, s2_1, s2_2])
+                r1.extend([s2_3, s2_4, s2_5])
+                r2.extend([s2_6, s2_7, s2_8])
+            newRows.append(r0)
+            newRows.append(r1)
+            newRows.append(r2)
+        self.rows = newRows
+        self.setInfo()
 
 
+    def resizeIfNeeded(self):
+        assert self.squareWidth in (3,4)
+        pixelWidth = self.squareWidth * self.width # total pixels width for grid
+        if pixelWidth % 2 == 0:
+            if self.squareWidth == 4:
+                print(f"Resize: Break 4x4 into 4 2x2\nStarting grid: ")
+                self.printGrid()
+                self.resize4to2()
+            else:
+                print(f"Resize: Break 4 3x3 into 9 2x2. \nStarting grid: ")
+                self.printGrid()
+                self.resize3to2()
+        elif pixelWidth % 3 == 0:
+            print(f"No Resize- keep as 3x3")
+        else:
+            print(f"pixelwidth not divisible by 2 or 3 - error")
+            sys.exit(1)
+        
+    # process grid - apply enhancements to all current squares and return new grid
+    def processGrid(self, enh):
+        newGrid = Grid()
+        for row in self.rows:
+            newGrid.addRow(self.processRow(row, enh))
+        print(f"After enhancements grid has {newGrid.numSquares} squares of {newGrid.squareWidth}x{newGrid.squareWidth}.")
+        newGrid.resizeIfNeeded()
+        return newGrid
+
+    def countOn(self):
+        mycount = 0
+        for row in self.rows:
+            for sq in row:
+                c = sq.count('#')
+                mycount += c
+                # print(f"Counting on in {sq} is {c} Tot is {mycount}")
+        return mycount
+    
 # def getRotatesAndFlips(s):
 #     variations = set()
 #     a = s.split('/')
@@ -64,7 +174,7 @@ def printGrid(grid):
 #         variations.add('/'.join(a))
 #         variations.add('/'.join(a[::-1]))
 #     # print(f"Variations for {s}:")
-#     # for v in variations: printStr(v)
+#     # for v in variations: printSquare(v)
 #     return variations
 
 def flip(s):
@@ -131,89 +241,40 @@ def fracture(s): # break 4x4 into 4 2x2
     # print(f"Fracturing {s} into {l}")
     return l
 
-# grid is a string like .#./..#/###
-# if input is length 2 then return [ strLen3 ]
-# if input is length 3 then return [ [ strLen4, strLen4, strLen4, strLen4 ] ]
-def processString(grid, enh):
-    if len(grid) == 5: # 2x2
-        print(f"{grid} -> {enh[grid]}  (src={src[grid]})")
-        return [ enh[grid] ]
-    elif len(grid) == 11: # 3x3
-        if grid in enh:
-            s4 = enh[grid]
-            print(f"{grid} -> {s4}     (src={src[grid]})")
-            return fracture(s4)
-        else:   
-            print(f"Did not find {grid} in enhancements")
-    else:
-        print(f"Unexpected grid length {len(grid)} for {grid}")
-        sys.exit(1)
-
-# Reordering is only needed because I store grids as a flat list
-# e.g. for 16 2x2 grids:
-# [ g0, g1, g2, g3, g4, g5, ... g15 ]
-# but they are really:
-# [ g0, g1, g4, g5 ]
-# [ g2, g3, g6, g7 ]
-# [ g8, g9, g12,g13]
-# [ g10,g11,g14,g15]
-# This is just for display purposes; the processing should work fine without it
-# as each grid is independent.
-def reorderGrid(grids): 
-    newGrid = []
-    n = int(math.sqrt(len(grids)))
-    if n==2: return grids
-    assert n%2==0
-    arr = [grids[i*n:(i+1)*n] for i in range(n)]
-    # print(f"Reorder arr is {arr} ")
-    for y in range(0, n, 2):
-        r1 = arr[y]
-        r2 = arr[y+1]
-        # print(f"Reordering rows {y} and {y+1}: {r1} and {r2}")
-        for x4 in range(len(r1)//4):
-            # print(f"  Taking cols {x4*4} to {x4*4+1} from each: {r1[x4*4:x4*4+2]} and {r2[x4*4:x4*4+2]}")
-            newGrid.extend(r1[x4*4:x4*4+2])
-            newGrid.extend(r2[x4*4:x4*4+2])
-            # print(f"--- So newgrid is {newGrid}")
-        for x4 in range(len(r1)//4):
-            newGrid.extend(r1[x4*4+2:x4*4+4])
-            newGrid.extend(r2[x4*4+2:x4*4+4])
-    # print(f"Reordered grid is:")
-    # printGrid(newGrid)
-    return newGrid
-
-# grids is a list of strings
-def processGrids(grids, enh):
-    newGrid = []
-    for g in grids:
-        newGrid.extend(processString(g, enh))
-    if len(newGrid[0]) == 5: # 2x2
-        return reorderGrid(newGrid)
-    return newGrid
-
-def countOn(grids):
-    mycount = 0
-    for g in grids:
-        c = g.count('#')
-        mycount += c
-        # print(f"Counting on in {g} is {c} Tot is {mycount}")
-    return mycount
 
 def doPart1(db):
     enh = getEnhancements(db)
-    grids = ['.#./..#/###']
-    for it in range(3):
-        print(f"Iteration {it+1} is starting with {len(grids)} grids.")
-        newgrids = processGrids(grids, enh)
-        grids = newgrids
-        on = countOn(grids)
-        print(f"After {it+1} iterations there are {len(grids)} grids. {on} pixels are on")
-        printGrid(grids)
+    grid = Grid('.#./..#/###')
+    print("Initial grid:")
+    grid.printGrid()
+    for it in range(5):
+        print(f"Iteration {it+1} is starting with {grid.numSquares} squares.")
+        newgrid = grid.processGrid(enh)
+        print(f"After processing, new grid has {newgrid.numSquares} squares.")
+        newgrid.printGrid()
+        grid = newgrid
+        on = grid.countOn()
+        print(f"After {it+1} iterations there are {grid.numSquares} squares. {on} pixels are on")
+        # printGrid(grids)
     return on
    
     
 def doPart2(db):
-    return 0
+    enh = getEnhancements(db)
+    grid = Grid('.#./..#/###')
+    print("Initial grid:")
+    grid.printGrid()
+    for it in range(18):
+        print(f"Iteration {it+1} is starting with {grid.numSquares} squares.")
+        newgrid = grid.processGrid(enh)
+        print(f"After processing, new grid has {newgrid.numSquares} squares.")
+        newgrid.printGrid()
+        grid = newgrid
+        on = grid.countOn()
+        print(f"After {it+1} iterations there are {grid.numSquares} squares. {on} pixels are on")
+        # printGrid(grids)
+    return on
+
 #---------------------------------------------------------------------------------------
 # Load input
 db = load_db()
